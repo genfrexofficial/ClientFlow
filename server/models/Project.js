@@ -35,6 +35,22 @@ const projectSchema = new mongoose.Schema(
       enum: ['PLANNING', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED'],
       default: 'PLANNING'
     },
+    stage: {
+      type: String,
+      enum: ['PLANNING', 'REQUIREMENTS', 'DESIGN', 'DEVELOPMENT', 'TESTING', 'CLIENT_REVIEW', 'DEPLOYMENT', 'COMPLETED', 'ON_HOLD'],
+      default: 'PLANNING'
+    },
+    health: {
+      type: String,
+      enum: ['ON_TRACK', 'AT_RISK', 'OVERDUE_BLOCKED'],
+      default: 'ON_TRACK'
+    },
+    assignedWorkers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
     progress: {
       type: Number,
       default: 0,
@@ -50,5 +66,11 @@ const projectSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+projectSchema.index({ client: 1 });
+projectSchema.index({ status: 1 });
+projectSchema.index({ stage: 1 });
+projectSchema.index({ health: 1 });
+projectSchema.index({ assignedWorkers: 1 });
 
 module.exports = mongoose.model('Project', projectSchema);

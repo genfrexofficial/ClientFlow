@@ -9,5 +9,10 @@ export const activityService = {
   getRecentActivities: async () => {
     const response = await api.get('/activities/recent');
     return response.data;
+  },
+
+  getAuditLogs: async (params = {}) => {
+    const response = await api.get('/activities/audit', { params });
+    return response.data;
   }
 };

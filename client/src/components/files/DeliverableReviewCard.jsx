@@ -18,14 +18,18 @@ import {
 
 const DeliverableReviewCard = ({
   file,
+  deliverable,
   isAdmin = false,
   isClient = false,
   onApprove,
   onRequestChanges,
   onDelete
 }) => {
-  const approvalCfg = APPROVAL_STATUS[file.approvalStatus] || {
-    label: file.approvalStatus,
+  const currentFile = file || deliverable;
+  if (!currentFile) return null;
+
+  const approvalCfg = APPROVAL_STATUS[currentFile.approvalStatus] || {
+    label: currentFile.approvalStatus || 'PENDING_REVIEW',
     color: 'bg-slate-100 text-slate-700'
   };
 
@@ -39,9 +43,9 @@ const DeliverableReviewCard = ({
   };
 
   // Build safe download / preview URL
-  const fileDownloadUrl = file.fileUrl?.startsWith('http')
-    ? file.fileUrl
-    : `http://localhost:5000${file.fileUrl}`;
+  const fileDownloadUrl = currentFile.fileUrl?.startsWith('http')
+    ? currentFile.fileUrl
+    : `http://localhost:5000${currentFile.fileUrl}`;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-card hover:shadow-md transition-all flex flex-col justify-between">
@@ -50,14 +54,14 @@ const DeliverableReviewCard = ({
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-start gap-3 min-w-0">
             <div className="p-2 rounded-lg bg-slate-100 shrink-0 mt-0.5">
-              {getFileIcon(file.fileType)}
+              {getFileIcon(currentFile.fileType)}
             </div>
             <div className="min-w-0">
-              <h4 className="text-xs font-bold text-slate-900 truncate" title={file.fileName}>
-                {file.fileName}
+              <h4 className="text-xs font-bold text-slate-900 truncate" title={currentFile.fileName}>
+                {currentFile.fileName}
               </h4>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                {file.category} • {formatFileSize(file.fileSize)}
+                {currentFile.category} • {formatFileSize(currentFile.fileSize)}
               </p>
             </div>
           </div>
@@ -74,13 +78,27 @@ const DeliverableReviewCard = ({
           <div className="flex justify-between">
             <span className="text-slate-400">Uploaded By:</span>
             <span className="font-medium text-slate-700 truncate max-w-[140px]">
-              {file.uploadedBy?.name || 'Team Lead'}
+              {currentFile.uploadedBy?.name || 'Team Lead'}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-400">Date:</span>
-            <span className="font-medium text-slate-700">{formatDate(file.createdAt)}</span>
+            <span className="font-medium text-slate-700">{formatDate(currentFile.createdAt)}</span>
           </div>
+          {currentFile.task?.title && (
+            <div className="flex justify-between">
+              <span className="text-slate-400">Linked Task:</span>
+              <span className="font-medium text-slate-700 truncate max-w-[150px]" title={currentFile.task.title}>
+                {currentFile.task.title}
+              </span>
+            </div>
+          )}
+          {currentFile.revisionNotes && (
+            <div className="mt-2 p-2 rounded bg-rose-50 border border-rose-200 text-rose-800 text-[10px]">
+              <p className="font-bold">Revision Requested:</p>
+              <p className="mt-0.5">{currentFile.revisionNotes}</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -91,7 +109,7 @@ const DeliverableReviewCard = ({
           href={fileDownloadUrl}
           target="_blank"
           rel="noopener noreferrer"
-          download={file.fileName}
+          download={currentFile.fileName}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
         >
           <Download className="w-3.5 h-3.5" />
@@ -100,12 +118,12 @@ const DeliverableReviewCard = ({
 
         {/* Client Review Actions */}
         <div className="flex items-center gap-1.5">
-          {isClient && file.approvalStatus !== 'APPROVED' && (
+          {isClient && currentFile.approvalStatus !== 'APPROVED' && (
             <>
               <Button
                 variant="danger"
                 size="xs"
-                onClick={() => onRequestChanges(file)}
+                onClick={() => onRequestChanges(currentFile)}
                 icon={AlertTriangle}
               >
                 Request Changes
@@ -113,7 +131,7 @@ const DeliverableReviewCard = ({
               <Button
                 variant="success"
                 size="xs"
-                onClick={() => onApprove(file._id)}
+                onClick={() => onApprove(currentFile._id)}
                 icon={CheckCircle2}
               >
                 Approve
@@ -121,7 +139,7 @@ const DeliverableReviewCard = ({
             </>
           )}
 
-          {isClient && file.approvalStatus === 'APPROVED' && (
+          {isClient && currentFile.approvalStatus === 'APPROVED' && (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
               <CheckCircle2 className="w-3.5 h-3.5" /> Approved
             </span>
@@ -131,7 +149,7 @@ const DeliverableReviewCard = ({
           {isAdmin && (
             <button
               type="button"
-              onClick={() => onDelete(file._id)}
+              onClick={() => onDelete(currentFile._id)}
               className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
               title="Delete File"
             >

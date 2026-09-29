@@ -5,7 +5,7 @@ import NotificationDropdown from '../notifications/NotificationDropdown';
 import { Menu, Search, User, LogOut, ChevronDown, ShieldCheck, Briefcase } from 'lucide-react';
 
 const Navbar = ({ onMobileMenuToggle }) => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isWorker, isClient } = useAuth();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -13,6 +13,12 @@ const Navbar = ({ onMobileMenuToggle }) => {
     setUserMenuOpen(false);
     logout();
     navigate('/login');
+  };
+
+  const getProfileRoute = () => {
+    if (isAdmin) return '/admin/settings';
+    if (isWorker) return '/worker/profile';
+    return '/client/profile';
   };
 
   return (
@@ -65,11 +71,15 @@ const Navbar = ({ onMobileMenuToggle }) => {
               <p className="text-xs font-semibold text-slate-800 leading-none">{user?.name}</p>
               <div className="flex items-center gap-1 mt-1">
                 {isAdmin ? (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200">
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
                     <ShieldCheck className="w-2.5 h-2.5" /> Agency Admin
                   </span>
+                ) : isWorker ? (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                    <Briefcase className="w-2.5 h-2.5" /> Team Engineer
+                  </span>
                 ) : (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                     <Briefcase className="w-2.5 h-2.5" /> Client
                   </span>
                 )}
@@ -87,6 +97,9 @@ const Navbar = ({ onMobileMenuToggle }) => {
               <div className="px-4 py-2 border-b border-slate-100">
                 <p className="text-xs font-semibold text-slate-900">{user?.name}</p>
                 <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+                {user?.title && (
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">{user.title}</p>
+                )}
                 {user?.companyName && (
                   <p className="text-[10px] text-indigo-600 font-medium mt-0.5">{user.companyName}</p>
                 )}
@@ -96,7 +109,7 @@ const Navbar = ({ onMobileMenuToggle }) => {
                 <button
                   onClick={() => {
                     setUserMenuOpen(false);
-                    navigate(isAdmin ? '/admin/settings' : '/client/profile');
+                    navigate(getProfileRoute());
                   }}
                   className="w-full flex items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-900"
                 >

@@ -1,15 +1,16 @@
 const Comment = require('../models/Comment');
 const Project = require('../models/Project');
+const Task = require('../models/Task');
 const { logActivity } = require('../services/activityService');
 const { sendNotification } = require('../services/notificationService');
 
-// @desc    Get all comments for a project (optionally filter by file)
+// @desc    Get comments for a project, task, or deliverable file
 // @route   GET /api/comments/project/:projectId
 // @access  Private
 const getProjectComments = async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const { fileId } = req.query;
+    const { fileId, taskId } = req.query;
 
     const project = await Project.findById(projectId);
     if (!project) {
@@ -26,14 +27,24 @@ const getProjectComments = async (req, res, next) => {
       });
     }
 
-    const query = { project: projectId };
+    let query = { project: projectId };
+
     if (fileId) {
       query.file = fileId;
     }
+    if (taskId) {
+      query.task = taskId;
+    }
+
+    // CRITICAL: NEVER return internal comments to clients
+    if (req.user.role === 'CLIENT') {
+      query.isInternal = { $ne: true };
+    }
 
     const comments = await Comment.find(query)
-      .populate('user', 'name email role avatar')
+      .populate('user', 'name email role avatar title')
       .populate('file', 'fileName')
+      .populate('task', 'title')
       .sort({ createdAt: 1 });
 
     res.status(200).json({
@@ -51,7 +62,7 @@ const getProjectComments = async (req, res, next) => {
 // @access  Private
 const createComment = async (req, res, next) => {
   try {
-    const { project: projectId, file: fileId, message } = req.body;
+    const { project: projectId, file: fileId, task: taskId, message, isInternal } = req.body;
 
     if (!projectId || !message || !message.trim()) {
       return res.status(400).json({
@@ -75,16 +86,22 @@ const createComment = async (req, res, next) => {
       });
     }
 
+    // Clients cannot post internal notes
+    const internalFlag = req.user.role === 'CLIENT' ? false : Boolean(isInternal);
+
     const comment = await Comment.create({
       project: projectId,
       file: fileId || null,
+      task: taskId || null,
       user: req.user._id,
-      message: message.trim()
+      message: message.trim(),
+      isInternal: internalFlag
     });
 
     const populated = await Comment.findById(comment._id)
-      .populate('user', 'name email role avatar')
-      .populate('file', 'fileName');
+      .populate('user', 'name email role avatar title')
+      .populate('file', 'fileName')
+      .populate('task', 'title');
 
     const isClient = req.user.role === 'CLIENT';
 
@@ -93,18 +110,35 @@ const createComment = async (req, res, next) => {
       projectId,
       userId: req.user._id,
       action: isClient ? 'FEEDBACK_RECEIVED' : 'COMMENT_ADDED',
-      description: `${req.user.name} added ${isClient ? 'client feedback' : 'a comment'}.`
+      description: `${req.user.name} added ${isClient ? 'client feedback' : internalFlag ? 'an internal note' : 'a comment'}.`,
+      entityType: taskId ? 'TASK' : fileId ? 'FILE' : 'PROJECT',
+      entityId: taskId || fileId || projectId,
+      clientVisible: !internalFlag
     });
 
-    // Notify opposite party
-    const targetUserId = isClient ? project.createdBy : project.client;
-    if (targetUserId) {
-      await sendNotification({
-        userId: targetUserId,
-        projectId: project._id,
-        type: 'FEEDBACK',
-        message: `${req.user.name} posted feedback on "${project.name}": "${message.trim().substring(0, 70)}..."`
-      });
+    // Notifications
+    if (!internalFlag) {
+      // If client posted, notify admin
+      if (isClient && project.createdBy) {
+        await sendNotification({
+          userId: project.createdBy,
+          projectId,
+          title: 'Client Comment',
+          type: 'FEEDBACK',
+          message: `${req.user.name} posted feedback on "${project.name}".`,
+          link: `/admin/projects/${project._id}`
+        });
+      } else if (!isClient && project.client) {
+        // If admin or worker posted a client-visible comment, notify client
+        await sendNotification({
+          userId: project.client,
+          projectId,
+          title: 'New Project Comment',
+          type: 'FEEDBACK',
+          message: `${req.user.name} posted a message on "${project.name}".`,
+          link: `/client/projects/${project._id}`
+        });
+      }
     }
 
     res.status(201).json({
@@ -119,7 +153,7 @@ const createComment = async (req, res, next) => {
 
 // @desc    Delete comment
 // @route   DELETE /api/comments/:id
-// @access  Private
+// @access  Private (Author or Admin)
 const deleteComment = async (req, res, next) => {
   try {
     const comment = await Comment.findById(req.params.id);
@@ -130,11 +164,13 @@ const deleteComment = async (req, res, next) => {
       });
     }
 
-    // Only owner or admin can delete
-    if (req.user.role !== 'ADMIN' && comment.user.toString() !== req.user._id.toString()) {
+    const isAuthor = comment.user.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'ADMIN';
+
+    if (!isAuthor && !isAdmin) {
       return res.status(403).json({
         success: false,
-        message: 'Unauthorized to delete this comment.'
+        message: 'You are not authorized to delete this comment.'
       });
     }
 

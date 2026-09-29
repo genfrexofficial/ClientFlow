@@ -19,3 +19,5 @@ export const CardSkeleton = () => {
     </div>
   );
 };
+
+export default Skeleton;

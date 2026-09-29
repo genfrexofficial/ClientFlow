@@ -1,5 +1,6 @@
 const Project = require('../models/Project');
 const Task = require('../models/Task');
+const TaskRequest = require('../models/TaskRequest');
 const Milestone = require('../models/Milestone');
 const File = require('../models/File');
 const Comment = require('../models/Comment');
@@ -13,7 +14,8 @@ const generateProjectSummary = async (req, res, next) => {
 
     const project = await Project.findById(projectId)
       .populate('client', 'name companyName')
-      .populate('createdBy', 'name');
+      .populate('createdBy', 'name')
+      .populate('assignedWorkers', 'name email title');
 
     if (!project) {
       return res.status(404).json({
@@ -30,81 +32,124 @@ const generateProjectSummary = async (req, res, next) => {
       });
     }
 
-    const tasks = await Task.find({ project: projectId });
+    const now = new Date();
+    const tasks = await Task.find({ project: projectId }).populate('assignedTo', 'name');
     const milestones = await Milestone.find({ project: projectId }).sort({ dueDate: 1 });
     const files = await File.find({ project: projectId });
-    const comments = await Comment.find({ project: projectId }).sort({ createdAt: -1 }).limit(5);
+    const taskRequests = await TaskRequest.find({ project: projectId });
 
     const totalTasks = tasks.length;
-    const completedTasks = tasks.filter((t) => t.status === 'COMPLETED').length;
-    const pendingTasks = tasks.filter((t) => t.status !== 'COMPLETED');
-    const highPriorityPending = pendingTasks.filter((t) => t.priority === 'HIGH');
+    const completedTasks = tasks.filter((t) => t.status === 'COMPLETED');
+    const inProgressTasks = tasks.filter((t) => t.status === 'IN_PROGRESS');
+    const blockedTasks = tasks.filter((t) => t.status === 'BLOCKED');
+    const inReviewTasks = tasks.filter((t) => t.status === 'IN_REVIEW');
+    const overdueTasks = tasks.filter(
+      (t) => t.status !== 'COMPLETED' && t.dueDate && new Date(t.dueDate) < now
+    );
 
     const totalMilestones = milestones.length;
-    const completedMilestones = milestones.filter((m) => m.status === 'COMPLETED').length;
-    const upcomingMilestone = milestones.find((m) => m.status !== 'COMPLETED');
+    const completedMilestones = milestones.filter((m) => m.status === 'COMPLETED');
+    const upcomingMilestones = milestones.filter((m) => m.status !== 'COMPLETED');
 
     const deliverables = files.filter((f) => f.category === 'DELIVERABLE');
     const pendingReviewFiles = deliverables.filter((f) => f.approvalStatus === 'PENDING_REVIEW');
     const changesRequestedFiles = deliverables.filter((f) => f.approvalStatus === 'CHANGES_REQUESTED');
     const approvedFiles = deliverables.filter((f) => f.approvalStatus === 'APPROVED');
 
-    // Synthesize structured narrative
-    let healthStatus = 'ON_TRACK';
-    if (changesRequestedFiles.length > 0 || highPriorityPending.length > 2) {
-      healthStatus = 'ATTENTION_NEEDED';
-    }
-    if (project.status === 'COMPLETED' || project.progress === 100) {
-      healthStatus = 'COMPLETED';
+    const pendingRequests = taskRequests.filter((r) => r.status === 'PENDING_APPROVAL');
+
+    // Synthesize structured executive intelligence
+    let currentStatus = project.health || 'ON_TRACK';
+    if (blockedTasks.length > 0 || overdueTasks.length > 0) {
+      currentStatus = 'OVERDUE_BLOCKED';
+    } else if (changesRequestedFiles.length > 0 || pendingRequests.length > 0) {
+      currentStatus = 'AT_RISK';
+    } else if (project.progress === 100) {
+      currentStatus = 'COMPLETED';
     }
 
-    let summaryText = `The "${project.name}" project is currently at ${project.progress}% progress with status ${project.status.replace('_', ' ')}. `;
-    
+    let executiveSummary = `Project "${project.name}" is currently in the ${project.stage.replace('_', ' ')} stage with an overall completion rate of ${project.progress}%. `;
     if (project.progress === 100) {
-      summaryText += `All ${totalTasks} planned development tasks have been fully completed, and ${completedMilestones} milestones have been achieved. Client approvals are complete.`;
+      executiveSummary += `All ${totalTasks} planned tasks have been delivered and signed off. Milestones have been fully achieved.`;
     } else {
-      if (completedTasks > 0) {
-        summaryText += `${completedTasks} out of ${totalTasks} tasks are complete. `;
-      }
-      if (upcomingMilestone) {
-        summaryText += `Current phase focus is on "${upcomingMilestone.title}". `;
+      executiveSummary += `${completedTasks.length} of ${totalTasks} engineering tasks are completed. `;
+      if (inProgressTasks.length > 0) {
+        executiveSummary += `Active execution is underway on ${inProgressTasks.length} task(s). `;
       }
       if (pendingReviewFiles.length > 0) {
-        summaryText += `There ${pendingReviewFiles.length === 1 ? 'is 1 deliverable' : `are ${pendingReviewFiles.length} deliverables`} awaiting client approval. `;
+        executiveSummary += `Client attention is requested for ${pendingReviewFiles.length} deliverable(s) awaiting approval. `;
       }
-      if (changesRequestedFiles.length > 0) {
-        summaryText += `Action required: ${changesRequestedFiles.length} item(s) have change requests pending revision (${changesRequestedFiles.map((f) => f.fileName).join(', ')}). `;
-      }
-      if (comments.length > 0) {
-        summaryText += `Recent communication focuses on: "${comments[0].message.substring(0, 60)}...".`;
+      if (blockedTasks.length > 0) {
+        executiveSummary += `⚠️ Alert: ${blockedTasks.length} task(s) currently report blocked progress. `;
       }
     }
 
-    const keyHighlights = [];
-    keyHighlights.push(`Progress: ${project.progress}% (${completedTasks}/${totalTasks} tasks completed)`);
-    if (totalMilestones > 0) {
-      keyHighlights.push(`Milestones: ${completedMilestones}/${totalMilestones} completed`);
+    const keyProgress = [
+      `Overall Progress: ${project.progress}% completed (${completedTasks.length}/${totalTasks} tasks)`,
+      `Stage: ${project.stage.replace('_', ' ')}`,
+      `Milestones Achieved: ${completedMilestones.length}/${totalMilestones}`,
+      `Approved Deliverables: ${approvedFiles.length}/${deliverables.length}`
+    ];
+
+    const risks = [];
+    if (blockedTasks.length > 0) {
+      risks.push(`${blockedTasks.length} task(s) blocked: ${blockedTasks.map((t) => `"${t.title}"`).join(', ')}`);
     }
-    if (pendingReviewFiles.length > 0) {
-      keyHighlights.push(`Awaiting Approval: ${pendingReviewFiles.map((f) => f.fileName).join(', ')}`);
+    if (overdueTasks.length > 0) {
+      risks.push(`${overdueTasks.length} task(s) past target deadline: ${overdueTasks.map((t) => `"${t.title}"`).join(', ')}`);
     }
     if (changesRequestedFiles.length > 0) {
-      keyHighlights.push(`Revisions Needed: ${changesRequestedFiles.map((f) => f.fileName).join(', ')}`);
+      risks.push(`Deliverable revision pending: ${changesRequestedFiles.map((f) => `"${f.fileName}"`).join(', ')}`);
     }
-    if (upcomingMilestone) {
-      keyHighlights.push(`Next Target: ${upcomingMilestone.title} (Due: ${upcomingMilestone.dueDate ? new Date(upcomingMilestone.dueDate).toLocaleDateString() : 'TBD'})`);
+    if (risks.length === 0) {
+      risks.push('Zero active blockers identified; project execution is tracking normally against schedule.');
+    }
+
+    const pendingActions = [];
+    if (pendingRequests.length > 0) {
+      pendingActions.push(`Admin: Review ${pendingRequests.length} pending client task request(s).`);
+    }
+    if (inReviewTasks.length > 0) {
+      pendingActions.push(`Admin: Review ${inReviewTasks.length} task submission(s) from team members.`);
+    }
+    if (pendingReviewFiles.length > 0) {
+      pendingActions.push(`Client: Review and sign off on ${pendingReviewFiles.length} submitted deliverable(s).`);
+    }
+    if (changesRequestedFiles.length > 0) {
+      pendingActions.push(`Team: Address revision feedback on ${changesRequestedFiles.length} deliverable(s).`);
+    }
+    if (pendingActions.length === 0) {
+      pendingActions.push('No pending approvals or sign-offs required at this time.');
+    }
+
+    const recommendedNextSteps = [];
+    if (upcomingMilestones.length > 0) {
+      recommendedNextSteps.push(`Focus team bandwidth on milestone: "${upcomingMilestones[0].title}" (Target: ${upcomingMilestones[0].dueDate ? new Date(upcomingMilestones[0].dueDate).toLocaleDateString() : 'Scheduled'}).`);
+    }
+    if (blockedTasks.length > 0) {
+      recommendedNextSteps.push(`Clear dependencies for blocked task "${blockedTasks[0].title}".`);
+    }
+    if (inProgressTasks.length > 0) {
+      recommendedNextSteps.push(`Continue execution on active task "${inProgressTasks[0].title}".`);
+    }
+    if (recommendedNextSteps.length === 0) {
+      recommendedNextSteps.push('Conduct final project retrospective and hand off sign-off documentation.');
     }
 
     res.status(200).json({
       success: true,
       data: {
         projectName: project.name,
-        healthStatus,
+        healthStatus: currentStatus,
+        stage: project.stage,
         progress: project.progress,
-        summary: summaryText,
-        keyHighlights,
-        pendingActionCount: pendingReviewFiles.length + changesRequestedFiles.length + highPriorityPending.length,
-        generatedAt: new Date().toISOString()
+        executiveSummary,
+        currentStatus,
+        keyProgress,
+        risks,
+        pendingActions,
+        recommendedNextSteps,
+        timestamp: new Date().toISOString()
       }
     });
   } catch (error) {

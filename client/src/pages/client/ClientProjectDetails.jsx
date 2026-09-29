@@ -19,6 +19,7 @@ import CommentSection from '../../components/feedback/CommentSection';
 import RecentActivityFeed from '../../components/dashboard/RecentActivityFeed';
 import CompletionSummaryModal from '../../components/projects/CompletionSummaryModal';
 import AIProjectSummaryModal from '../../components/projects/AIProjectSummaryModal';
+import ProjectStageRoadmap from '../../components/projects/ProjectStageRoadmap';
 import {
   FolderKanban,
   CheckSquare,
@@ -150,6 +151,12 @@ const ClientProjectDetails = () => {
     (f) => f.category === 'DELIVERABLE' && f.approvalStatus === 'PENDING_REVIEW'
   ).length;
 
+  const healthConfig = {
+    ON_TRACK: { label: 'On Track', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    AT_RISK: { label: 'At Risk', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+    OVERDUE_BLOCKED: { label: 'Attention Needed', color: 'bg-rose-50 text-rose-700 border-rose-200' }
+  }[project.health || 'ON_TRACK'] || { label: 'On Track', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -164,6 +171,16 @@ const ClientProjectDetails = () => {
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusConfig.color}`}
               >
                 {statusConfig.label}
+              </span>
+              <span
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200"
+              >
+                Stage: {project.stage ? project.stage.replace('_', ' ') : 'PLANNING'}
+              </span>
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${healthConfig.color}`}
+              >
+                Health: {healthConfig.label}
               </span>
             </div>
 
@@ -271,6 +288,12 @@ const ClientProjectDetails = () => {
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            <ProjectStageRoadmap
+              currentStage={project.stage || 'PLANNING'}
+              projectId={projectId}
+              isAdmin={false}
+            />
+
             <Card title="Project Scope" subtitle="Official client requirements and deliverables">
               <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
                 {project.description || 'No detailed scope provided.'}

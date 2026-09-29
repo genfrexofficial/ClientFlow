@@ -11,8 +11,8 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-          <p className="text-sm font-medium text-slate-500">Loading ClientFlow...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm font-medium text-slate-500">Loading GENFREX Platform...</p>
         </div>
       </div>
     );
@@ -24,7 +24,10 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
   if (allowedRoles && !allowedRoles.includes(user?.role)) {
     // Redirect to respective dashboard if unauthorized for this role
-    const redirectPath = user?.role === 'ADMIN' ? '/admin/dashboard' : '/client/dashboard';
+    let redirectPath = '/client/dashboard';
+    if (user?.role === 'ADMIN') redirectPath = '/admin/dashboard';
+    else if (user?.role === 'HR') redirectPath = '/hr/dashboard';
+    else if (user?.role === 'WORKER') redirectPath = '/worker/dashboard';
     return <Navigate to={redirectPath} replace />;
   }
 

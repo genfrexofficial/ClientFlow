@@ -3,14 +3,16 @@ const Notification = require('../models/Notification');
 /**
  * Dispatch an in-app notification
  */
-const sendNotification = async ({ userId, projectId, message, type = 'GENERAL' }) => {
+const sendNotification = async ({ userId, projectId, title = '', message, type = 'GENERAL', link = '' }) => {
   try {
-    if (!userId) return null;
+    if (!userId || !message) return null;
     const notification = await Notification.create({
       user: userId,
       project: projectId,
+      title,
       message,
-      type
+      type,
+      link
     });
     return notification;
   } catch (error) {

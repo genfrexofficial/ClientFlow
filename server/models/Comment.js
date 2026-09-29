@@ -7,6 +7,10 @@ const commentSchema = new mongoose.Schema(
       ref: 'Project',
       required: [true, 'Project reference is required']
     },
+    task: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Task'
+    },
     file: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'File'
@@ -20,11 +24,19 @@ const commentSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Message cannot be empty'],
       trim: true
+    },
+    isInternal: {
+      type: Boolean,
+      default: false
     }
   },
   {
     timestamps: true
   }
 );
+
+commentSchema.index({ project: 1, isInternal: 1 });
+commentSchema.index({ task: 1, isInternal: 1 });
+commentSchema.index({ file: 1 });
 
 module.exports = mongoose.model('Comment', commentSchema);

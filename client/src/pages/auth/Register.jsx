@@ -38,13 +38,14 @@ const Register = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <Link to="/" className="inline-flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-200">
-            <Layers className="h-6 w-6" />
-          </div>
-          <span className="text-xl font-bold tracking-tight text-slate-900">ClientFlow</span>
+        <Link to="/login" className="inline-flex items-center justify-center">
+          <img
+            src="/logo.png"
+            alt="GENFREX"
+            className="h-16 w-auto object-contain"
+          />
         </Link>
-        <h2 className="mt-4 text-2xl font-bold text-slate-900">Register Agency Account</h2>
+        <h2 className="mt-4 text-2xl font-bold text-slate-900">Register Account</h2>
         <p className="mt-1 text-xs text-slate-500">
           Already have an account?{' '}
           <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-500">

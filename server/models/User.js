@@ -24,9 +24,18 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['ADMIN', 'CLIENT'],
+      enum: ['ADMIN', 'WORKER', 'CLIENT', 'HR'],
       default: 'CLIENT',
       required: true
+    },
+    title: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    skills: {
+      type: [String],
+      default: []
     },
     companyName: {
       type: String,
@@ -70,5 +79,7 @@ userSchema.pre('save', async function (next) {
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
+
+userSchema.index({ role: 1 });
 
 module.exports = mongoose.model('User', userSchema);

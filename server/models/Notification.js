@@ -11,6 +11,11 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Project'
     },
+    title: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     message: {
       type: String,
       required: [true, 'Notification message is required'],
@@ -18,8 +23,12 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['TASK', 'FILE', 'FEEDBACK', 'APPROVAL', 'PROJECT', 'GENERAL'],
+      enum: ['TASK', 'TASK_REQUEST', 'FILE', 'FEEDBACK', 'APPROVAL', 'PROJECT', 'GENERAL', 'HR'],
       default: 'GENERAL'
+    },
+    link: {
+      type: String,
+      default: ''
     },
     isRead: {
       type: Boolean,
@@ -30,5 +39,7 @@ const notificationSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+notificationSchema.index({ user: 1, isRead: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

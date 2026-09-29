@@ -22,6 +22,7 @@ import RecentActivityFeed from '../../components/dashboard/RecentActivityFeed';
 import ProjectModal from '../../components/projects/ProjectModal';
 import CompletionSummaryModal from '../../components/projects/CompletionSummaryModal';
 import AIProjectSummaryModal from '../../components/projects/AIProjectSummaryModal';
+import ProjectStageRoadmap from '../../components/projects/ProjectStageRoadmap';
 import {
   FolderKanban,
   CheckSquare,
@@ -121,6 +122,14 @@ const AdminProjectDetails = () => {
       } catch (err) {
         toast.error('Failed to delete project.');
       }
+    }
+  };
+
+  const handleStageUpdate = async (newStage) => {
+    const res = await projectService.updateProjectStage(projectId, newStage);
+    if (res.success) {
+      setProject((prev) => ({ ...prev, stage: newStage }));
+      fetchProjectData();
     }
   };
 
@@ -277,6 +286,12 @@ const AdminProjectDetails = () => {
     color: 'bg-slate-100 text-slate-700'
   };
 
+  const healthConfig = {
+    ON_TRACK: { label: 'On Track', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    AT_RISK: { label: 'At Risk', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+    OVERDUE_BLOCKED: { label: 'Overdue / Blocked', color: 'bg-rose-50 text-rose-700 border-rose-200' }
+  }[project.health || 'ON_TRACK'] || { label: 'On Track', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.status === 'COMPLETED').length;
   const totalMilestones = milestones.length;
@@ -297,6 +312,16 @@ const AdminProjectDetails = () => {
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusConfig.color}`}
               >
                 {statusConfig.label}
+              </span>
+              <span
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-indigo-50 text-indigo-700 border-indigo-200"
+              >
+                Stage: {project.stage ? project.stage.replace('_', ' ') : 'PLANNING'}
+              </span>
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${healthConfig.color}`}
+              >
+                Health: {healthConfig.label}
               </span>
             </div>
 
@@ -431,6 +456,13 @@ const AdminProjectDetails = () => {
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            <ProjectStageRoadmap
+              currentStage={project.stage || 'PLANNING'}
+              projectId={projectId}
+              isAdmin={true}
+              onStageUpdated={handleStageUpdate}
+            />
+
             <Card title="Project Summary" subtitle="Scope and delivery specifications">
               <p className="text-xs text-slate-700 leading-relaxed whitespace-pre-line">
                 {project.description || 'No detailed project brief provided.'}

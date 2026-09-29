@@ -21,6 +21,16 @@ export const projectService = {
     return response.data;
   },
 
+  updateProjectStage: async (id, stage) => {
+    const response = await api.put(`/projects/${id}/stage`, { stage });
+    return response.data;
+  },
+
+  getAdminOverviewAnalytics: async () => {
+    const response = await api.get('/projects/analytics/overview');
+    return response.data;
+  },
+
   deleteProject: async (id) => {
     const response = await api.delete(`/projects/${id}`);
     return response.data;

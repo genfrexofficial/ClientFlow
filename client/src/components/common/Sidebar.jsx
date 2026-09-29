@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -13,11 +13,23 @@ import {
   X,
   Layers,
   User,
-  Sparkles
+  Inbox,
+  HardHat,
+  BarChart3,
+  History,
+  FileText,
+  UserPlus,
+  Clock,
+  CheckCircle2,
+  Send,
+  XCircle,
+  FileCheck,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isHR, isWorker, isClient, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -25,32 +37,131 @@ const Sidebar = ({ isOpen, onClose }) => {
     navigate('/login');
   };
 
-  const adminNavItems = [
-    { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
-    { label: 'Projects', path: '/admin/projects', icon: FolderKanban },
-    { label: 'Clients', path: '/admin/clients', icon: Users },
-    { label: 'Tasks', path: '/admin/tasks', icon: CheckSquare },
-    { label: 'Files & Deliverables', path: '/admin/files', icon: Files },
-    { label: 'Notifications', path: '/admin/notifications', icon: Bell },
-    { label: 'Settings', path: '/admin/settings', icon: Settings },
+  // Grouped Admin navigation
+  const adminSections = [
+    {
+      group: 'OVERVIEW',
+      items: [
+        { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard }
+      ]
+    },
+    {
+      group: 'PROJECT MANAGEMENT',
+      items: [
+        { label: 'Projects', path: '/admin/projects', icon: FolderKanban },
+        { label: 'Tasks & Milestones', path: '/admin/tasks', icon: CheckSquare },
+        { label: 'Task Requests', path: '/admin/task-requests', icon: Inbox },
+        { label: 'Deliverables', path: '/admin/files', icon: Files }
+      ]
+    },
+    {
+      group: 'PEOPLE',
+      items: [
+        { label: 'Workers', path: '/admin/workers', icon: HardHat },
+        { label: 'Clients', path: '/admin/clients', icon: Users }
+      ]
+    },
+    {
+      group: 'HR & APPOINTMENTS',
+      items: [
+        { label: 'HR Overview', path: '/admin/hr/dashboard', icon: BarChart3 },
+        { label: 'Candidates', path: '/admin/hr/candidates', icon: UserPlus },
+        { label: 'All Letters', path: '/admin/hr/appointments', icon: FileText },
+        { label: 'Pending Approvals', path: '/admin/hr/pending-approvals', icon: Clock },
+        { label: 'Approved Letters', path: '/admin/hr/approved', icon: CheckCircle2 },
+        { label: 'Sent Letters', path: '/admin/hr/sent', icon: Send },
+        { label: 'Rejected Letters', path: '/admin/hr/rejected', icon: XCircle },
+        { label: 'HR Reports', path: '/admin/hr/reports', icon: FileCheck }
+      ]
+    },
+    {
+      group: 'SYSTEM',
+      items: [
+        { label: 'Reports & Analytics', path: '/admin/reports', icon: BarChart3 },
+        { label: 'Audit Logs', path: '/admin/activities', icon: History },
+        { label: 'Notifications', path: '/admin/notifications', icon: Bell },
+        { label: 'Settings', path: '/admin/settings', icon: Settings }
+      ]
+    }
   ];
 
-  const clientNavItems = [
-    { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard },
-    { label: 'My Projects', path: '/client/projects', icon: FolderKanban },
-    { label: 'Deliverables & Files', path: '/client/files', icon: Files },
-    { label: 'Notifications', path: '/client/notifications', icon: Bell },
-    { label: 'My Profile', path: '/client/profile', icon: User },
+  // Dedicated HR navigation
+  const hrSections = [
+    {
+      group: 'HR WORKSPACE',
+      items: [
+        { label: 'Dashboard', path: '/hr/dashboard', icon: LayoutDashboard },
+        { label: 'Candidates', path: '/hr/candidates', icon: UserPlus },
+        { label: 'Create Appointment', path: '/hr/appointments/create', icon: FilePlusIcon },
+        { label: 'My Drafts', path: '/hr/appointments?status=DRAFT', icon: FileText },
+        { label: 'Submitted Letters', path: '/hr/approvals-status', icon: Clock },
+        { label: 'Approved Letters', path: '/hr/appointments?status=APPROVED', icon: CheckCircle2 },
+        { label: 'Sent Letters', path: '/hr/sent-letters', icon: Send },
+        { label: 'Rejected Letters', path: '/hr/appointments?status=REJECTED', icon: XCircle },
+        { label: 'Settings', path: '/hr/settings', icon: Settings }
+      ]
+    }
   ];
 
-  const navItems = isAdmin ? adminNavItems : clientNavItems;
+  // Worker navigation
+  const workerSections = [
+    {
+      group: 'ENGINEERING',
+      items: [
+        { label: 'Dashboard', path: '/worker/dashboard', icon: LayoutDashboard },
+        { label: 'My Tasks', path: '/worker/tasks', icon: CheckSquare },
+        { label: 'Assigned Projects', path: '/worker/projects', icon: FolderKanban },
+        { label: 'Deliverables & Files', path: '/worker/files', icon: Files },
+        { label: 'Activity Feed', path: '/worker/activity', icon: History },
+        { label: 'My Profile', path: '/worker/profile', icon: User }
+      ]
+    }
+  ];
+
+  // Client navigation
+  const clientSections = [
+    {
+      group: 'CLIENT PORTAL',
+      items: [
+        { label: 'Dashboard', path: '/client/dashboard', icon: LayoutDashboard },
+        { label: 'My Projects', path: '/client/projects', icon: FolderKanban },
+        { label: 'Task Requests', path: '/client/task-requests', icon: Inbox },
+        { label: 'Project Tasks', path: '/client/tasks', icon: CheckSquare },
+        { label: 'Deliverables', path: '/client/files', icon: Files },
+        { label: 'Activity', path: '/client/activity', icon: History },
+        { label: 'My Profile', path: '/client/profile', icon: User }
+      ]
+    }
+  ];
+
+  function FilePlusIcon(props) {
+    return <FileText {...props} />;
+  }
+
+  let sections = clientSections;
+  let workspaceLabel = 'Client Portal';
+  let badgeColor = 'bg-emerald-500';
+
+  if (isAdmin) {
+    sections = adminSections;
+    workspaceLabel = 'Admin Command Center';
+    badgeColor = 'bg-blue-600';
+  } else if (isHR) {
+    sections = hrSections;
+    workspaceLabel = 'HR Talent Operations';
+    badgeColor = 'bg-cyan-500';
+  } else if (isWorker) {
+    sections = workerSections;
+    workspaceLabel = 'Engineering Workspace';
+    badgeColor = 'bg-amber-500';
+  }
 
   return (
     <>
       {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={onClose}
         />
       )}
@@ -62,20 +173,14 @@ const Sidebar = ({ isOpen, onClose }) => {
         }`}
       >
         {/* Top brand header */}
-        <div>
-          <div className="flex h-16 items-center justify-between px-6 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-200">
-                <Layers className="h-5 w-5" />
-              </div>
-              <div>
-                <h1 className="text-base font-bold text-slate-900 tracking-tight leading-none">
-                  ClientFlow
-                </h1>
-                <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider mt-0.5">
-                  Client Portal
-                </p>
-              </div>
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex h-16 shrink-0 items-center justify-between px-5 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex items-center">
+              <img
+                src="/logo.png"
+                alt="GENFREX"
+                className="h-9 w-auto max-w-[175px] object-contain"
+              />
             </div>
 
             {/* Close button on mobile */}
@@ -88,45 +193,58 @@ const Sidebar = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          {/* Navigation links */}
-          <div className="px-3 py-4 space-y-1">
-            <div className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-              {isAdmin ? 'Agency Workspace' : 'Client Portal'}
+          {/* Navigation links - scrollable */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+            <div className="px-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+              <span>{workspaceLabel}</span>
+              <span className={`w-2 h-2 rounded-full ${badgeColor}`} />
             </div>
 
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => onClose && onClose()}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                      isActive
-                        ? 'bg-indigo-50 text-indigo-700 font-semibold border-r-2 border-indigo-600'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`
-                  }
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
-                </NavLink>
-              );
-            })}
+            {sections.map((section) => (
+              <div key={section.group} className="space-y-1">
+                <p className="px-2 pt-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                  {section.group}
+                </p>
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => onClose && onClose()}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          isActive
+                            ? 'bg-blue-50 text-blue-700 font-semibold border-r-2 border-blue-600'
+                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                        }`
+                      }
+                    >
+                      <Icon className="h-4 w-4 shrink-0 text-slate-500" />
+                      <span className="truncate">{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Bottom user summary & logout */}
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50/80 mb-2">
+        <div className="p-3 border-t border-slate-100 shrink-0 bg-slate-50/50">
+          <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/60 mb-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="h-7 w-7 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-xs flex items-center justify-center shrink-0">
+              <div className="h-7 w-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center shrink-0">
                 {user?.name?.charAt(0) || 'U'}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-slate-900 truncate">{user?.name}</p>
-                <p className="text-[10px] text-slate-500 truncate">{user?.role}</p>
+                <p className="text-xs font-semibold text-slate-900 truncate">{user?.name}</p>
+                <div className="flex items-center gap-1">
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${badgeColor}`} />
+                  <p className="text-[10px] text-slate-500 truncate font-semibold uppercase">
+                    {user?.role}
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -134,7 +252,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+            className="flex w-full items-center gap-2 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
           >
             <LogOut className="h-4 w-4" />
             <span>Sign Out</span>

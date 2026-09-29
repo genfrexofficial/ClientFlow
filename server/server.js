@@ -35,15 +35,49 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static file serving for uploads (local fallback)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const { authenticateToken } = require('./middleware/authMiddleware');
+const File = require('./models/File');
+const Task = require('./models/Task');
+
+// Secure static file serving for uploads (enforcing Auth & RBAC)
+app.use('/uploads', authenticateToken, async (req, res, next) => {
+  try {
+    const filename = path.basename(req.path);
+    const file = await File.findOne({ fileUrl: `/uploads/${filename}` }).populate('project task');
+
+    if (file) {
+      if (req.user.role === 'CLIENT') {
+        if (file.project && file.project.client.toString() !== req.user._id.toString()) {
+          return res.status(403).json({ success: false, message: 'Access denied to this file.' });
+        }
+        if (file.task && file.task.clientVisible === false) {
+          return res.status(403).json({ success: false, message: 'Access denied. Internal file.' });
+        }
+      } else if (req.user.role === 'WORKER') {
+        const isAssigned = file.project?.assignedWorkers?.some(
+          (w) => w.toString() === req.user._id.toString()
+        );
+        const hasTask = await Task.exists({ project: file.project?._id, assignedTo: req.user._id });
+        if (!isAssigned && !hasTask) {
+          return res.status(403).json({ success: false, message: 'Access denied to this file.' });
+        }
+      }
+    } else if (req.user.role !== 'ADMIN' && req.user.role !== 'HR') {
+      return res.status(403).json({ success: false, message: 'Access denied.' });
+    }
+
+    express.static(path.join(__dirname, 'uploads'))(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'ClientFlow API'
+    service: 'GENFREX Unified Platform API'
   });
 });
 
@@ -52,12 +86,14 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));
+app.use('/api/task-requests', require('./routes/taskRequestRoutes'));
 app.use('/api/milestones', require('./routes/milestoneRoutes'));
 app.use('/api/files', require('./routes/fileRoutes'));
 app.use('/api/comments', require('./routes/commentRoutes'));
 app.use('/api/activities', require('./routes/activityRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/ai', require('./routes/aiRoutes'));
+app.use('/api/hr', require('./routes/hrRoutes'));
 
 // 404 handler for undefined API routes
 app.use('/api/*', (req, res) => {

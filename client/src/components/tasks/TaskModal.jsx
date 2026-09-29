@@ -2,43 +2,62 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Input from '../common/Input';
 import Button from '../common/Button';
+import { workerService } from '../../services/workerService';
 import toast from 'react-hot-toast';
 
 const TaskModal = ({ isOpen, onClose, task = null, projectId, onSaved }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    assignedTo: '',
     priority: 'MEDIUM',
     status: 'TODO',
-    dueDate: ''
+    dueDate: '',
+    estimatedHours: 0,
+    clientVisible: true
   });
+  const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      // Fetch workers
+      workerService.getWorkers().then((res) => {
+        if (res.success) setWorkers(res.workers || []);
+      }).catch(console.error);
+
       if (task) {
         setFormData({
           title: task.title || '',
           description: task.description || '',
+          assignedTo: task.assignedTo?._id || task.assignedTo || '',
           priority: task.priority || 'MEDIUM',
           status: task.status || 'TODO',
-          dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''
+          dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
+          estimatedHours: task.estimatedHours || 0,
+          clientVisible: task.clientVisible !== undefined ? task.clientVisible : true
         });
       } else {
         setFormData({
           title: '',
           description: '',
+          assignedTo: '',
           priority: 'MEDIUM',
           status: 'TODO',
-          dueDate: ''
+          dueDate: '',
+          estimatedHours: 0,
+          clientVisible: true
         });
       }
     }
   }, [isOpen, task]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -50,7 +69,11 @@ const TaskModal = ({ isOpen, onClose, task = null, projectId, onSaved }) => {
 
     try {
       setLoading(true);
-      await onSaved({ ...formData, project: projectId }, task?._id);
+      await onSaved({
+        ...formData,
+        project: projectId,
+        assignedTo: formData.assignedTo || null
+      }, task?._id);
       onClose();
     } catch (err) {
       // Handled in parent
@@ -63,13 +86,13 @@ const TaskModal = ({ isOpen, onClose, task = null, projectId, onSaved }) => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={task ? 'Edit Task' : 'Add New Task'}
+      title={task ? 'Edit Task & Assignment' : 'Create New Engineering Task'}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 text-xs">
         <Input
-          label="Task Title"
+          label="Task Title *"
           name="title"
-          placeholder="e.g. Design responsive homepage navigation"
+          placeholder="e.g. Implement OAuth SSO Flow"
           value={formData.title}
           onChange={handleChange}
           required
@@ -80,59 +103,106 @@ const TaskModal = ({ isOpen, onClose, task = null, projectId, onSaved }) => {
           name="description"
           type="textarea"
           rows={3}
-          placeholder="Details on requirements and acceptance criteria..."
+          placeholder="Acceptance criteria and technical instructions..."
           value={formData.description}
           onChange={handleChange}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block font-semibold text-slate-800 mb-1">
+            Assign Worker / Engineer
+          </label>
+          <select
+            name="assignedTo"
+            value={formData.assignedTo}
+            onChange={handleChange}
+            className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="">-- Unassigned (TODO) --</option>
+            {workers.map((w) => (
+              <option key={w._id} value={w._id}>
+                {w.name} — {w.title || 'Engineer'} ({w.workload?.totalActive || 0} active)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
-              Priority
+            <label className="block font-semibold text-slate-800 mb-1">
+              Priority Tier
             </label>
             <select
               name="priority"
               value={formData.priority}
               onChange={handleChange}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="LOW">Low</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HIGH">High</option>
+              <option value="LOW">LOW</option>
+              <option value="MEDIUM">MEDIUM</option>
+              <option value="HIGH">HIGH</option>
+              <option value="URGENT">URGENT</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">
+            <label className="block font-semibold text-slate-800 mb-1">
               Status
             </label>
             <select
               name="status"
               value={formData.status}
               onChange={handleChange}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-200 p-2 text-xs text-slate-800 focus:border-indigo-500 focus:outline-none"
             >
-              <option value="TODO">To Do</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="COMPLETED">Completed</option>
-              <option value="BLOCKED">Blocked</option>
+              <option value="TODO">TODO</option>
+              <option value="ASSIGNED">ASSIGNED</option>
+              <option value="IN_PROGRESS">IN PROGRESS</option>
+              <option value="BLOCKED">BLOCKED</option>
+              <option value="IN_REVIEW">IN REVIEW</option>
+              <option value="COMPLETED">COMPLETED</option>
             </select>
           </div>
         </div>
 
-        <Input
-          label="Due Date"
-          name="dueDate"
-          type="date"
-          value={formData.dueDate}
-          onChange={handleChange}
-        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Target Due Date"
+            name="dueDate"
+            type="date"
+            value={formData.dueDate}
+            onChange={handleChange}
+          />
+
+          <Input
+            label="Estimated Hours"
+            name="estimatedHours"
+            type="number"
+            value={formData.estimatedHours}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              name="clientVisible"
+              checked={formData.clientVisible}
+              onChange={handleChange}
+              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+            />
+            <span className="text-slate-700 font-medium">
+              Client Visible (Show this task on customer progress portal)
+            </span>
+          </label>
+        </div>
 
         <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" size="sm" type="button" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" loading={loading}>
+          <Button type="submit" size="sm" loading={loading}>
             {task ? 'Update Task' : 'Create Task'}
           </Button>
         </div>

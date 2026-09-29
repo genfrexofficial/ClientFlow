@@ -2,11 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Check, CheckCheck, FileText, CheckCircle2, MessageSquare, AlertCircle, Layers } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 import { formatRelativeTime } from '../../utils/formatters';
 
 const NotificationDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { isAdmin, isWorker } = useAuth();
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
@@ -43,9 +45,18 @@ const NotificationDropdown = () => {
       markAsRead(notification._id);
     }
     setIsOpen(false);
+    if (notification.link) {
+      navigate(notification.link);
+      return;
+    }
     if (notification.project?._id) {
-      // Navigate to project
-      navigate(`/admin/projects/${notification.project._id}`);
+      if (isAdmin) {
+        navigate(`/admin/projects/${notification.project._id}`);
+      } else if (isWorker) {
+        navigate('/worker/tasks');
+      } else {
+        navigate(`/client/projects/${notification.project._id}`);
+      }
     }
   };
 
